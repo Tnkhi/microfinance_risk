@@ -1,7 +1,7 @@
 # MicroFinance Risk — Analyse de Risque Crédit
 
 Application Django de scoring de risque crédit pour la microfinance,
-développée dans le contexte camerounais / Afrique de l'Ouest.
+développée dans le contexte camerounais / Afrique central.
 
 ## Stack technique
 - **Backend** : Python 3.10+ / Django 4.2
