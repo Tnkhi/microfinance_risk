@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+{% block title %}{{ client.prenom }} {{ client.nom }}{% endblock %}
+{% block page_title %}Fiche client{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'client_list' %}" class="btn btn-outline btn-sm">← Clients</a>
+  <a href="{% url 'client_edit' client.pk %}" class="btn btn-outline btn-sm">✏️ Modifier</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid-2" style="align-items:start;">
+
+  <!-- Colonne gauche -->
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+    <!-- Profil -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:1rem;">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--green-50);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--green-600);">
+          {{ client.prenom.0 }}{{ client.nom.0 }}
+        </div>
+        <div>
+          <div style="font-size:18px;font-weight:600;">{{ client.prenom }} {{ client.nom }}</div>
+          <div style="font-size:13px;color:var(--text-muted);">{{ client.age }} ans · {{ client.get_sexe_display }} · {{ client.ville }}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="background:var(--gray-50);border-radius:6px;padding:10px 12px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">Secteur</div>
+          <div style="font-size:13px;font-weight:500;">{{ client.get_secteur_activite_display }}</div>
+        </div>
+        <div style="background:var(--gray-50);border-radius:6px;padding:10px 12px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">Revenu mensuel</div>
+          <div style="font-size:13px;font-weight:600;color:var(--green-600);">{{ client.revenu_mensuel|floatformat:0 }} FCFA</div>
+        </div>
+        <div style="background:var(--gray-50);border-radius:6px;padding:10px 12px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">Téléphone</div>
+          <div style="font-size:13px;font-weight:500;">{{ client.telephone|default:"—" }}</div>
+        </div>
+        <div style="background:var(--gray-50);border-radius:6px;padding:10px 12px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">Client depuis</div>
+          <div style="font-size:13px;font-weight:500;">{{ client.date_creation|date:"d/m/Y" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ BLOC ANALYSE ML ═══ -->
+    {% if ctx_credit.a_credit_en_cours %}
+    <!-- BLOCAGE : crédit en cours -->
+    <div class="card" style="border:2px solid #E24B4A;background:#FCEBEB;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:22px;">🚫</span>
+        <div style="font-size:15px;font-weight:600;color:#791F1F;">Nouvelle demande impossible</div>
+      </div>
+      <p style="font-size:14px;color:#791F1F;margin-bottom:10px;">
+        Ce client a <strong>{{ ctx_credit.credits_en_cours.count }} crédit(s) en cours</strong>.
+        Un nouveau crédit ne peut être accordé qu'après remboursement intégral du crédit actif.
+      </p>
+      {% for c in ctx_credit.credits_en_cours %}
+      <div style="background:rgba(255,255,255,0.6);border-radius:6px;padding:8px 12px;font-size:13px;margin-top:6px;">
+        <strong>{{ c.montant|floatformat:0 }} FCFA</strong> sur {{ c.duree_mois }} mois
+        — début {{ c.date_debut|date:"d/m/Y" }}
+        — <span style="color:#E24B4A;font-weight:600;">En cours</span>
+      </div>
+      {% endfor %}
+      <p style="font-size:12px;color:#a32d2d;margin-top:10px;">
+        Pour débloquer l'accès, passez le statut du crédit à <strong>Soldé</strong> dans l'historique ci-contre.
+      </p>
+    </div>
+
+    {% elif ctx_credit.a_antecedent_defaut %}
+    <!-- BLOCAGE : antécédent de défaut -->
+    <div class="card" style="border:2px solid #E24B4A;background:#FCEBEB;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:22px;">⛔</span>
+        <div style="font-size:15px;font-weight:600;color:#791F1F;">Antécédent de défaut</div>
+      </div>
+      <p style="font-size:14px;color:#791F1F;">
+        Ce client a un ou plusieurs crédits en <strong>défaut de paiement</strong> dans son historique.
+        Toute nouvelle demande est automatiquement refusée.
+      </p>
+    </div>
+
+    {% else %}
+    <!-- Formulaire analyse ML — client éligible -->
+    <div class="card" style="border:2px solid var(--green-100);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;">
+        <span style="font-size:18px;">🤖</span>
+        <div class="card-title" style="margin-bottom:0;color:var(--green-600);">Nouvelle analyse de risque</div>
+      </div>
+
+      <!-- Récapitulatif profil crédit -->
+      <div style="background:var(--gray-50);border-radius:6px;padding:10px 14px;margin-bottom:1rem;font-size:13px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="color:var(--text-muted);">Crédits soldés</span>
+          <strong>{{ ctx_credit.nb_credits_soldes }}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--text-muted);">Retards sur crédits soldés</span>
+          <strong {% if ctx_credit.nb_retards_total > 0 %}style="color:#854F0B"{% endif %}>
+            {{ ctx_credit.nb_retards_total }}
+          </strong>
+        </div>
+      </div>
+
+      <form method="post" action="{% url 'evaluer_client' client.pk %}">
+        {% csrf_token %}
+        {{ eval_form.client_id }}
+        {{ eval_form.nb_credits_anterieurs }}
+        {{ eval_form.nb_retards_anterieurs }}
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="form-group">
+            <label>{{ eval_form.montant_demande.label }}</label>
+            {{ eval_form.montant_demande }}
+          </div>
+          <div class="form-group">
+            <label>{{ eval_form.duree_mois.label }}</label>
+            {{ eval_form.duree_mois }}
+          </div>
+          <!-- Indicateur dynamique montant max + mensualité -->
+          <div id="indicateur-capacite" style="background:var(--blue-50);border-radius:6px;padding:10px 14px;font-size:13px;display:none;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="color:var(--blue-800);">Montant max accordable</span>
+              <strong id="montant-max-val" style="color:var(--blue-800);">—</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="color:var(--blue-800);">Mensualité estimée</span>
+              <strong id="mensualite-val" style="color:var(--blue-800);">—</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span style="color:var(--blue-800);">Taux d'effort</span>
+              <strong id="taux-effort-val" style="color:var(--blue-800);">—</strong>
+            </div>
+          </div>
+          <div id="avertissement-capacite" style="display:none;background:var(--amber-50);border-radius:6px;padding:10px 14px;font-size:13px;color:#633806;border-left:3px solid #EF9F27;">
+            ⚠️ <span id="avert-message"></span>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">
+            🔍 Lancer l'analyse ML
+          </button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Ajouter un crédit -->
+    <div class="card">
+      <div class="card-title">➕ Enregistrer un crédit</div>
+      {% if ctx_credit.a_credit_en_cours %}
+      <div style="font-size:13px;color:#791F1F;background:#FCEBEB;padding:8px 12px;border-radius:6px;">
+        Impossible : un crédit est déjà en cours pour ce client.
+      </div>
+      {% else %}
+      <form method="post" action="{% url 'add_credit' client.pk %}">
+        {% csrf_token %}
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group"><label>{{ credit_form.montant.label }}</label>{{ credit_form.montant }}</div>
+            <div class="form-group"><label>{{ credit_form.duree_mois.label }}</label>{{ credit_form.duree_mois }}</div>
+            <div class="form-group"><label>{{ credit_form.date_debut.label }}</label>{{ credit_form.date_debut }}</div>
+            <div class="form-group"><label>{{ credit_form.statut.label }}</label>{{ credit_form.statut }}</div>
+            <div class="form-group"><label>{{ credit_form.nb_retards.label }}</label>{{ credit_form.nb_retards }}</div>
+            <div class="form-group"><label>{{ credit_form.jours_retard_max.label }}</label>{{ credit_form.jours_retard_max }}</div>
+          </div>
+          <button type="submit" class="btn btn-outline btn-sm">💾 Enregistrer le crédit</button>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Colonne droite -->
+  <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+    <!-- Historique crédits -->
+    <div class="card">
+      <div class="card-title">Historique des crédits ({{ credits.count }})</div>
+      {% if credits %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Montant</th><th>Durée</th><th>Début</th><th>Statut</th><th>Retards</th></tr>
+          </thead>
+          <tbody>
+            {% for c in credits %}
+            <tr>
+              <td style="font-weight:500;">{{ c.montant|floatformat:0 }} FCFA</td>
+              <td>{{ c.duree_mois }} mois</td>
+              <td style="font-size:12px;color:var(--text-muted);">{{ c.date_debut|date:"d/m/Y" }}</td>
+              <td>
+                {% if c.statut == 'solde' %}<span class="badge badge-green">Soldé</span>
+                {% elif c.statut == 'en_cours' %}<span class="badge badge-amber">En cours</span>
+                {% else %}<span class="badge badge-red">Défaut</span>{% endif %}
+              </td>
+              <td>
+                {% if c.nb_retards > 0 %}
+                  <span class="badge badge-amber">{{ c.nb_retards }} retard(s)</span>
+                {% else %}
+                  <span style="color:var(--text-hint);font-size:12px;">Aucun</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:1.5rem;">
+        <p style="font-size:13px;">Aucun crédit enregistré.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Historique prédictions -->
+    <div class="card">
+      <div class="card-title">Historique des évaluations ({{ predictions.count }})</div>
+      {% if predictions %}
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:0.5rem;">
+          {% for p in predictions %}
+          <a href="{% url 'resultat_prediction' p.pk %}" style="text-decoration:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:6px;border:1px solid var(--border);transition:background 0.15s;" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background='transparent'">
+              <div>
+                <div style="font-size:13px;font-weight:500;">{{ p.montant_demande|floatformat:0 }} FCFA · {{ p.duree_mois_input }} mois</div>
+                <div style="font-size:11px;color:var(--text-muted);">{{ p.date_prediction|date:"d/m/Y à H:i" }}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                {% if p.eligible %}
+                  <span style="font-size:15px;font-weight:700;{% if p.niveau_risque == 'faible' %}color:#0F6E56{% elif p.niveau_risque == 'moyen' %}color:#854F0B{% else %}color:#791F1F{% endif %}">
+                    {{ p.score_fiabilite }}/100
+                  </span>
+                  {% if p.niveau_risque == 'faible' %}<span class="badge badge-green">Faible</span>
+                  {% elif p.niveau_risque == 'moyen' %}<span class="badge badge-amber">Moyen</span>
+                  {% else %}<span class="badge badge-red">Élevé</span>{% endif %}
+                {% else %}
+                  <span class="badge badge-red">Refusé</span>
+                {% endif %}
+              </div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state" style="padding:1.5rem;">
+          <p style="font-size:13px;">Aucune évaluation.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+const MONTANTS_MAX = {{ montants_max|safe }};
+const REVENU = {{ client.revenu_mensuel }};
+
+function fmt(n) {
+  return Math.round(n).toLocaleString('fr-FR') + ' FCFA';
+}
+
+function updateIndicateur() {
+  const montant = parseFloat(document.getElementById('id_montant_demande').value) || 0;
+  const duree = parseInt(document.getElementById('id_duree_mois').value) || 12;
+  const montantMax = MONTANTS_MAX[duree.toString()] || 0;
+  const mensualite = duree > 0 ? montant / duree : 0;
+  const tauxEffort = REVENU > 0 ? (mensualite / REVENU * 100) : 0;
+
+  const indic = document.getElementById('indicateur-capacite');
+  const avert = document.getElementById('avertissement-capacite');
+
+  if (montant > 0) {
+    indic.style.display = 'block';
+    document.getElementById('montant-max-val').textContent = fmt(montantMax);
+    document.getElementById('mensualite-val').textContent = fmt(mensualite);
+    document.getElementById('taux-effort-val').textContent = tauxEffort.toFixed(1) + '%';
+
+    if (montant > montantMax) {
+      avert.style.display = 'block';
+      document.getElementById('avert-message').textContent =
+        'Ce montant dépasse le plafond accordable (' + fmt(montantMax) + ') pour ' + duree + ' mois. Le dossier sera automatiquement refusé.';
+      document.getElementById('taux-effort-val').style.color = '#791F1F';
+    } else if (tauxEffort > 35) {
+      avert.style.display = 'block';
+      document.getElementById('avert-message').textContent =
+        'Taux d\'effort de ' + tauxEffort.toFixed(1) + '% : proche du plafond de 40%. Risque de refus possible.';
+      document.getElementById('taux-effort-val').style.color = '#854F0B';
+    } else {
+      avert.style.display = 'none';
+      document.getElementById('taux-effort-val').style.color = '#0F6E56';
+    }
+  } else {
+    indic.style.display = 'none';
+    avert.style.display = 'none';
+  }
+}
+
+const inputMontant = document.getElementById('id_montant_demande');
+const selectDuree = document.getElementById('id_duree_mois');
+if (inputMontant) inputMontant.addEventListener('input', updateIndicateur);
+if (selectDuree) selectDuree.addEventListener('change', updateIndicateur);
+</script>
+{% endblock %}

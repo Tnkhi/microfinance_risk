@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}Clients{% endblock %}
+{% block page_title %}Clients{% endblock %}
+{% block topbar_actions %}
+  <a href="{% url 'client_create' %}" class="btn btn-primary btn-sm">➕ Nouveau client</a>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-2">
+  <form method="get" style="display:flex;gap:10px;align-items:center;">
+    <input type="text" name="q" value="{{ q }}" placeholder="Rechercher par nom, ville, téléphone..." style="max-width:400px;">
+    <button type="submit" class="btn btn-outline btn-sm">🔍 Rechercher</button>
+    {% if q %}<a href="{% url 'client_list' %}" class="btn btn-outline btn-sm">✕ Effacer</a>{% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <div class="section-header">
+    <div class="section-title">{{ clients.count }} client{{ clients.count|pluralize }}</div>
+  </div>
+  {% if clients %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Client</th><th>Contact</th><th>Secteur</th>
+          <th>Revenu mensuel</th><th>Crédits</th><th>Évaluations</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clients %}
+        <tr>
+          <td>
+            <div style="font-weight:500;">{{ c.prenom }} {{ c.nom }}</div>
+            <div style="font-size:12px;color:var(--text-muted);">{{ c.age }} ans · {{ c.ville }}</div>
+          </td>
+          <td style="font-size:13px;color:var(--text-muted);">{{ c.telephone|default:"—" }}</td>
+          <td><span class="badge badge-blue">{{ c.get_secteur_activite_display }}</span></td>
+          <td style="font-weight:500;">{{ c.revenu_mensuel|floatformat:0 }} FCFA</td>
+          <td style="text-align:center;">
+            <span class="badge badge-gray">{{ c.nb_credits }}</span>
+          </td>
+          <td style="text-align:center;">
+            <span class="badge {% if c.nb_predictions > 0 %}badge-green{% else %}badge-gray{% endif %}">{{ c.nb_predictions }}</span>
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <a href="{% url 'client_detail' c.pk %}" class="btn btn-outline btn-sm">Voir</a>
+              <a href="{% url 'client_edit' c.pk %}" class="btn btn-outline btn-sm">✏️</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="icon">👥</div>
+    {% if q %}
+      <p>Aucun client trouvé pour "{{ q }}".</p>
+    {% else %}
+      <p>Aucun client enregistré.<br>
+      <a href="{% url 'client_create' %}" class="link">Ajouter le premier client →</a></p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
